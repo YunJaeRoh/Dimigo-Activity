@@ -1,0 +1,108 @@
+import sys
+from PyQt5.QtWidgets import QPushButton
+from PyQt5 import QtWidgets
+from PyQt5.QtGui import QPainter
+
+# 이거 B-spline 곡선임!!!
+
+class MyWidget(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setGeometry(30,30,1500,1000)
+        self.setWindowTitle('Bezier-Curve')
+
+        self.pos1 = []
+        self.pos2 = []
+        self.limit = 0
+        self.iteration = 1000
+        self.btn = []
+        self.change = 0
+        self.ch_i = -1
+
+        btn1 = QPushButton("3번 이상 클릭하고 누르세영", self)
+        btn1.move(20, 20)
+        btn1.clicked.connect(self.btn1_clicked)
+
+
+    def paintEvent(self, event):
+        if self.limit == 1:
+            self.limit = 2
+            qp = QPainter()
+            qp.begin(self)
+            for i in range(0,len(self.pos1)-1):
+                qp.drawLine(self.pos1[i], self.pos2[i], self.pos1[i+1], self.pos2[i+1])
+            self.drawCurve(self.iteration, qp)
+            qp.end()
+
+    def mousePressEvent(self, event):
+        if self.limit == 0:
+            self.pos1.append(event.pos().x())
+            self.pos2.append(event.pos().y())
+            print(len(self.pos1),"번째 점!!")
+            self.setButton(len(self.pos1))
+        elif self.change == 1:
+            self.pos1[self.ch_i] = event.pos().x()
+            self.pos2[self.ch_i] = event.pos().y()
+            self.btn[self.ch_i].move(event.pos().x(), event.pos().y())
+            self.change = 0
+            self.limit = 1
+            self.update()
+
+    def setButton(self, i):
+        self.btn.append(QPushButton("%d" % i, self))
+        self.btn[-1].move(self.pos1[-1], self.pos2[-1])
+        self.btn[-1].resize(20,20)
+        self.btn[-1].clicked.connect(lambda: self.btn_clicked(i-1))
+        self.btn[-1].show()
+
+    def btn_clicked(self, i):
+        if self.limit == 2:
+            self.change = 1
+            self.ch_i = i
+
+    def btn1_clicked(self):
+        if self.limit == 0:
+            self.limit = 1
+            self.update()
+        if self.limit == 2:
+            self.limit = 0
+            self.pos1 = []
+            self.pos2 = []
+            for i in range(len(self.btn)):
+                self.btn[i].deleteLater()
+            self.btn = []
+
+    def drawCurve(s, iteration, qp):
+        leng = len(s.pos1)
+        a1 = []
+        a2 = []
+        for i in range(leng - 2):
+            b1 = [0 for j in range(leng - 1 - i)]
+            b2 = [0 for j in range(leng - 1 - i)]
+            a1.append(b1)
+            a2.append(b2)
+        for i in range(0,iteration+1):
+            for j in range(0,leng - 2):
+                if j == 0:
+                    for k in range(0,leng-1):
+                        a1[j][k] = s.controlPoint(s.pos1[k], s.pos1[k + 1], i, iteration)
+                        a2[j][k] = s.controlPoint(s.pos2[k], s.pos2[k + 1], i, iteration)
+                else :
+                    for t in range(0,leng-1-j):
+                        a1[j][t] = s.controlPoint(a1[j-1][t], a1[j-1][t + 1], i, iteration)
+                        a2[j][t] = s.controlPoint(a2[j-1][t], a2[j-1][t + 1], i, iteration)
+            x = s.controlPoint(a1[-1][0], a1[-1][1], i, iteration)
+            y = s.controlPoint(a2[-1][0], a2[-1][1], i, iteration)
+            qp.drawRect(x, y, 3, 3)
+
+    def controlPoint(self, x1, x2, i, j):
+        x = i * x2 + (j - i) * x1
+        x /= j
+        return x
+
+if __name__ == '__main__':
+    app = QtWidgets.QApplication(sys.argv)
+    window = MyWidget()
+    window.show()
+    app.aboutToQuit.connect(app.deleteLater)
+    sys.exit(app.exec_())
